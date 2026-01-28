@@ -1,0 +1,11 @@
+{
+  "GEMINI_API_KEY": "",
+  "GEMINI_MODEL": "gemini-2.0-flash-exp",
+  "HTTP_PROXY": "",
+  "HTTPS_PROXY": "",
+  "APPBUILDER_TOKEN": "",
+  "SERIAL_ENABLED": false,
+  "SERIAL_PORT": "COM3",
+  "SERIAL_BAUDRATE": 115200,
+  "IP_CAMERA_URL": "http://192.168.1.100:8080"
+}

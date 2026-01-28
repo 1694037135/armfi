@@ -1,0 +1,164 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # 将下面的 YOUR_GITHUB_USERNAME 替换为你的 GitHub 用户名
+  IMAGE_NAME: ${{ github.repository_owner }}/zero-robotic-arm
+
+jobs:
+  # ============================================================
+  # Job 1: 构建并推送 Backend 镜像
+  # ============================================================
+  build-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: 📥 Checkout代码
+        uses: actions/checkout@v4
+
+      - name: 🔧 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 登录到 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 构建并推送 Backend 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: ./robot-control-system/backend
+          file: ./robot-control-system/backend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ============================================================
+  # Job 2: 构建并推送 AI Service 镜像
+  # ============================================================
+  build-ai-service:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: 📥 Checkout代码
+        uses: actions/checkout@v4
+
+      - name: 🔧 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 登录到 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-ai-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 构建并推送 AI Service 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: ./robot-control-system/ai-service
+          file: ./robot-control-system/ai-service/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ============================================================
+  # Job 3: 构建并推送 Frontend 镜像
+  # ============================================================
+  build-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: 📥 Checkout代码
+        uses: actions/checkout@v4
+
+      - name: 🔧 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 登录到 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 构建并推送 Frontend 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: ./robot-control-system/frontend
+          file: ./robot-control-system/frontend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64

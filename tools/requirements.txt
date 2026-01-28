@@ -1,0 +1,15 @@
+# 硬件调试工具依赖库
+# 安装命令: pip install -r tools/requirements.txt
+
+# 串口通信
+pyserial>=3.5
+
+# 计算机视觉 (OpenCV with ArUco support)
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+
+# 数值计算
+numpy>=1.24.0
+
+# 终端美化输出
+rich>=13.0.0

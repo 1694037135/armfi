@@ -1,0 +1,13 @@
+{
+  "GEMINI_API_KEY": "2df32239-0ce0-4a05-92d2-a0d6aafe857d",
+  "LLM_BASE_URL": "https://ark.cn-beijing.volces.com/api/v3",
+  "MODEL_FILTER": "ep-20260117224712-pqd89",
+  "MODEL_VISION": "ep-20260117224211-5kpj8",
+  "MODEL_EMBEDDING": "ep-20260117224959-bhtrx",
+  "MODEL_DECISION": "ep-m-20260117185846-7hksj",
+  "GEMINI_MODEL": "ep-m-20260117185846-7hksj",
+  "HTTP_PROXY": "",
+  "MAX_RETRIES": 3,
+  "APPBUILDER_TOKEN": "",
+  "IP_CAMERA_URL": "http://admin:123@192.168.1.65:8081"
+}

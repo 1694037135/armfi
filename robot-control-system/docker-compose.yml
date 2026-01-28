@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # Frontend - Vue + Nginx
+  # ============================================================
+  frontend:
+    # 默认使用云端预构建镜像（推荐，快速启动）
+    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-frontend:latest
+
+    # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
+    # build:
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
+
+    container_name: robot-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    networks:
+      - robot-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================
+  # Backend - Spring Boot
+  # ============================================================
+  backend:
+    # 默认使用云端预构建镜像（推荐，快速启动）
+    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-backend:latest
+
+    # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+
+    container_name: robot-backend
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring Boot 配置
+      - SPRING_PROFILES_ACTIVE=docker
+      - AI_SERVICE_URL=http://ai-service:8000
+      # JVM 配置
+      - JAVA_OPTS=-Xms512m -Xmx1g
+    networks:
+      - robot-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 40s
+
+  # ============================================================
+  # AI Service - FastAPI + YOLO + LLM
+  # ============================================================
+  ai-service:
+    # 默认使用云端预构建镜像（推荐，快速启动）
+    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-ai-service:latest
+
+    # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
+    # build:
+    #   context: ./ai-service
+    #   dockerfile: Dockerfile
+
+    container_name: robot-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      # AI 服务配置（从 config.json 加载，这里仅覆盖部分）
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      # 持久化配置和数据
+      - ./ai-service/config.json:/app/config.json:ro
+      - ai-data:/app/data
+      # 可选：挂载摄像头设备（如果在 Linux 主机上）
+      # - /dev/video0:/dev/video0
+    networks:
+      - robot-network
+    restart: unless-stopped
+    # 如果需要访问串口设备，取消下面的注释
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # privileged: true
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/" ]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+# ============================================================
+# 网络配置
+# ============================================================
+networks:
+  robot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================================
+# 数据卷
+# ============================================================
+volumes:
+  ai-data:
+    driver: local

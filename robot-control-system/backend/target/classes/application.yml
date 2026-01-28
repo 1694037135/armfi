@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: robot-control-backend
+
+# 串口配置
+serial:
+  port: COM3          # Windows串口，根据实际情况修改
+  baudrate: 115200
+  enabled: true       # 开启硬件连接模式
+
+# AI服务配置
+ai-service:
+  url: http://localhost:5000
+  enabled: true
+
+# WebSocket配置
+websocket:
+  endpoint: /ws
+  allowed-origins: "*"
+
+# 日志配置
+logging:
+  level:
+    com.robot: DEBUG
+    root: INFO

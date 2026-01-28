@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+MUJOCO_LOG.TXT
+training_logs/
+logs_sota/
+
+# Large files
+*.zip
+*.rar
+*.7z
+*.glb
+*.h5
+*.pth
+*.pt
+*.onnx
+*.stl
+*.SLDASM
+*.STEP
+*.step
+*.sldprt
+*.SLDPRT
+
+# Model files (exclude from git, download separately)
+yolov8n.pt
+robot-arm.glb
+机械臂模型.glb
+platform-develop.zip
+headlessui-main.zip
+lucide-main.zip
+tailwindcss-main.zip
+vueuse-main.zip
+
+# Cache
+_cache/
+_tmp/
+.trae/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Secrets and config
+robot-control-system/ai-service/config.json
+secrets/
+*.key
+*.pem
+
+# Docker volumes data
+ai-data/
+backend-logs/

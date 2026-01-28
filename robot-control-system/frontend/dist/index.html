@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ZERO 机械臂智能控制系统 - 专业的机器人控制解决方案">
+  <meta name="keywords" content="机械臂,机器人控制,ZERO ARM,智能控制">
+  <meta name="theme-color" content="#0a0a0f">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <title>ZERO ARM | 机械臂智能控制系统</title>
+
+  <!-- UI Dependencies -->
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#D0BB95",
+            "primary-dim": "rgba(0, 242, 255, 0.1)",
+            danger: "#ff2a2a",
+            "background-light": "#f7f7f6",
+            "background-dark": "#1d1a15",
+            "panel-bg": "rgba(10, 10, 10, 0.7)",
+            "panel-border": "rgba(255, 255, 255, 0.1)"
+          },
+          fontFamily: {
+            sans: ["-apple-system", "BlinkMacSystemFont", "SF Pro Display", "Helvetica Neue", "sans-serif"],
+            mono: ["SF Mono", "Menlo", "Monaco", "Courier New", "monospace"],
+            display: ["-apple-system", "BlinkMacSystemFont", "SF Pro Display", "sans-serif"]
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+            lg: "1rem",
+            xl: "1.5rem",
+            '2xl': "2rem",
+            '3xl': "2.5rem", // Apple Squircle-ish
+            full: "9999px"
+          },
+          backdropBlur: {
+            xs: "2px"
+          }
+        }
+      }
+    };
+  </script>
+  <script>
+    // SockJS 兼容性修复
+    window.global = window;
+  </script>
+  <style>
+    /* 加载状态样式 */
+    body {
+      margin: 0;
+      background: #0a0a0f;
+    }
+
+    #app-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0f;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+
+    #app-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loader-logo {
+      width: 48px;
+      height: 48px;
+      color: #00d4aa;
+      margin-bottom: 24px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .loader-spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid rgba(0, 212, 170, 0.1);
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      margin-top: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 13px;
+      color: #5c5c66;
+      letter-spacing: 0.05em;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-HMqNrdYI.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CZbX5nja.css">
+</head>
+
+<body>
+  <!-- 加载状态 -->
+  <div id="app-loader">
+    <svg class="loader-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" />
+      <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" />
+      <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </svg>
+    <div class="loader-spinner"></div>
+    <div class="loader-text">系统加载中...</div>
+  </div>
+
+  <div id="app"></div>
+
+  <script>
+    // 隐藏加载状态
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var loader = document.getElementById('app-loader');
+        if (loader) {
+          loader.classList.add('hidden');
+          setTimeout(function () {
+            loader.remove();
+          }, 300);
+        }
+      }, 500);
+    });
+  </script>
+</body>
+
+</html>
