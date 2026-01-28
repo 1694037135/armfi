@@ -53,7 +53,7 @@ _tmp/
 .trae/
 
 # Docker
-.dockerignore
+
 docker-compose.override.yml
 
 # Secrets and config
