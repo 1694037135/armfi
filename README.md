@@ -175,37 +175,4 @@ cp config.json.example config.json
 docker-compose build
 ```
 
-### 更多问题？
 
-查看 [部署指南](docs/DEPLOYMENT_GUIDE.md) 或提交 [Issue](https://github.com/YOUR_USERNAME/zero-robotic-arm/issues)
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
----
-
-## 📄 开源协议
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
----
-
-## 🙏 致谢
-
-- [YOLOv8](https://github.com/ultralytics/ultralytics) - 物体检测
-- [Three.js](https://threejs.org/) - 3D 渲染
-- [Vue.js](https://vuejs.org/) - 前端框架
-- [Spring Boot](https://spring.io/projects/spring-boot) - 后端框架
-
----
-
-⭐ **如果这个项目对你有帮助，请点个 Star！**
