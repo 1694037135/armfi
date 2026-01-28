@@ -5,7 +5,7 @@ WORKDIR /app
 
 # 复制 package.json 并安装依赖（利用 Docker 缓存）
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # 复制源代码并构建
 COPY . .
