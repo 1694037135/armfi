@@ -6,7 +6,7 @@ services:
   # ============================================================
   frontend:
     # 默认使用云端预构建镜像（推荐，快速启动）
-    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-frontend:latest
+    image: ghcr.io/1694037135/zero-robotic-arm-frontend:latest
 
     # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
     # build:
@@ -36,7 +36,7 @@ services:
   # ============================================================
   backend:
     # 默认使用云端预构建镜像（推荐，快速启动）
-    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-backend:latest
+    image: ghcr.io/1694037135/zero-robotic-arm-backend:latest
 
     # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
     # build:
@@ -67,7 +67,7 @@ services:
   # ============================================================
   ai-service:
     # 默认使用云端预构建镜像（推荐，快速启动）
-    image: ghcr.io/YOUR_USERNAME/zero-robotic-arm-ai-service:latest
+    image: ghcr.io/1694037135/zero-robotic-arm-ai-service:latest
 
     # 开发者模式：需要修改代码时，注释上面的 image，取消下面的注释
     # build:

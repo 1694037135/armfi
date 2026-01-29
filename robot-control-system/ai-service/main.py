@@ -25,6 +25,8 @@ import wave
 import math
 from config import load_config, build_gemini_generate_url
 from serial_transport import SerialConfig, SerialTransport, JointLimits
+print("✅✅✅ CODE VERSION CHECK: 2026-01-29 15:25 ✅✅✅")
+from llm_router import LLMRouter
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +75,7 @@ from skills import RobotSkills
 local_tts_engine = None
 ik_controller = None
 skills = None
+llm_router = None  # LLM 路由器
 serial_transport: SerialTransport | None = None
 
 # 实体机械臂状态回读（串口）
@@ -279,7 +282,7 @@ async def telemetry_loop() -> None:
 
 def init_services():
     """初始化所有服务"""
-    global ik_controller, skills, serial_transport
+    global ik_controller, skills, serial_transport, llm_router
     try:
         ik_controller = AdvancedIKController()
         logger.info("[OK] Advanced IK Controller initialized")
@@ -288,6 +291,20 @@ def init_services():
         logger.info("[OK] Robot Skills System initialized")
     except Exception as e:
         logger.error(f"[ERROR] Failed to initialize Core Services: {e}")
+    
+    # 初始化 LLM 路由器
+    if LLM_ENABLED:
+        try:
+            llm_router = LLMRouter(CONFIG)
+            logger.info("[OK] LLM Router initialized")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to initialize LLM Router: {e}")
+            import traceback
+            traceback.print_exc()
+            llm_router = None
+    else:
+        logger.warning("LLM Router not initialized: LLM_ENABLED=False")
+        llm_router = None
     
     init_local_tts()
     init_asr()
@@ -816,20 +833,29 @@ def generate_frames():
     # 尝试不同的 URL 后缀
     paths = ["/video", "/", "/videostream.cgi", "/live"]
     cap = None
+    is_local = False
     
-    for path in paths:
-        url = f"{IP_CAMERA_BASE}{path}"
-        logger.info(f"尝试连接摄像头: {url}")
-        cap = cv2.VideoCapture(url)
-        if cap.isOpened():
-            logger.info(f"成功连接摄像头: {url}")
-            break
-        cap.release()
+    # 检查是否配置为本地摄像头 (如 "0" 或 "1")
+    if str(IP_CAMERA_BASE).isdigit():
+        logger.info(f"使用本地摄像头: Index {IP_CAMERA_BASE}")
+        cap = cv2.VideoCapture(int(IP_CAMERA_BASE))
+        is_local = True
+    else:
+        # 尝试 IP 摄像头连接
+        for path in paths:
+            url = f"{IP_CAMERA_BASE}{path}"
+            logger.info(f"尝试连接摄像头: {url}")
+            cap = cv2.VideoCapture(url)
+            if cap.isOpened():
+                logger.info(f"成功连接摄像头: {url}")
+                break
+            cap.release()
     
-    # 如果连接失败，尝试本地摄像头
+    # 如果连接失败，尝试本地摄像头 (Fallback)
     if not cap or not cap.isOpened():
-        logger.warning(f"无法连接 IP 摄像头，尝试本地摄像头...")
+        logger.warning(f"无法连接配置的摄像头，尝试本地摄像头(Index 0)...")
         cap = cv2.VideoCapture(0)
+        is_local = True
     
     if not cap or not cap.isOpened():
         # 如果都失败了，生成测试画面（红底+时间）
@@ -862,10 +888,16 @@ def generate_frames():
             logger.warning("读取视频帧失败，尝试重连...")
             cap.release()
             time.sleep(2)
-            # Re-try the known good base + video
-            cap = cv2.VideoCapture(f"{IP_CAMERA_BASE}/video")
-            if not cap.isOpened():
-                 cap = cv2.VideoCapture(f"{IP_CAMERA_BASE}/")
+            
+            if is_local:
+                # 本地摄像头重连
+                cap = cv2.VideoCapture(0)
+            else:
+                # IP 摄像头重连
+                cap = cv2.VideoCapture(f"{IP_CAMERA_BASE}/video")
+                if not cap.isOpened():
+                     cap = cv2.VideoCapture(f"{IP_CAMERA_BASE}/")
+                # 如果 IP 摄像头多次失败，可以考虑切换到本地，但这里暂保持尝试配置的源
             continue
             
         ret, buffer = cv2.imencode('.jpg', frame)
@@ -1345,12 +1377,14 @@ async def websocket_telemetry(websocket: WebSocket):
 @app.post("/api/llm/chat")
 async def chat_with_llm(request: ChatRequest):
     """
-    智能对话接口 - 双模式系统
+    智能对话接口 - 多模型路由系统
     
-    模式1: 工作模式 - 识别工作指令（拿、捡、移动等）
-    模式2: 聊天模式 - AI对话 + 动作表演（挥手、点头等）
-    
-    系统会自动判断用户意图，选择合适的模式响应
+    流程：
+    1. MODEL_FILTER (Doubao-lite) - 快速意图分类
+    2. 根据意图路由:
+       - chat → 轻量模型或预设回复（快速）
+       - work → MODEL_DECISION (DeepSeek) 处理
+       - vision → MODEL_VISION 视觉理解
     """
     try:
         user_text = request.message
@@ -1359,127 +1393,104 @@ async def chat_with_llm(request: ChatRequest):
             
         logger.info(f"收到用户消息: {user_text}")
 
-        if not LLM_ENABLED:
-            return {"success": False, "error": "LLM已禁用：未配置 API Key"}
-            
-        API_KEY = CONFIG.get("GEMINI_API_KEY")
-        MODEL = CONFIG.get("GEMINI_MODEL")
-        BASE_URL = CONFIG.get("LLM_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-        API_URL = f"{BASE_URL}/chat/completions"
+        if not LLM_ENABLED or not llm_router:
+            return {"success": False, "error": "LLM已禁用：未配置 API Key 或路由器未初始化"}
         
-        # 升级版系统提示词 - 双模式智能判断
-        system_prompt = """
-你是机械臂助手Zero。
-""" + skills.get_skill_descriptions() + """
-
-## 任务:
-请根据用户指令控制机械臂。你不需要自己计算角度，只需要选择合适的工具(Skill)来执行。
-如果用户只是聊天，请使用 "chat" 模式。
-
-## 响应格式 (JSON):
-必须返回标准的 JSON 格式：
-{
-    "mode": "work" 或 "chat", 
-    "response": "给用户的回复", 
-    "skill": "要调用的函数名 (可选)",
-    "args": { "参数名": 值 } (可选)
-}
-
-## 示例:
-- 用户: "基座转到90度"
-  响应: {"mode": "work", "response": "好的", "skill": "control_joint", "args": {"joint_index": 1, "angle": 90}}
-- 用户: "向左一点"
-  响应: {"mode": "work", "response": "向左移动", "skill": "apply_preset", "args": {"name": "left"}}
-- 用户: "你好"
-  响应: {"mode": "chat", "response": "你好呀！我是机械臂助手Zero。"}
-"""
+        # ========== Step 1: 意图分类 ==========
+        intent = await llm_router.classify_intent(user_text)
+        logger.info(f"📊 意图分类结果: {intent}")
         
-        # 构造 OpenAI 格式请求
-        payload = {
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_text}
-            ],
-            "temperature": 0.7,
-            "stream": False
-        }
-
-        # 调用豆包/OpenAI 兼容接口
-        timeout = httpx.Timeout(60.0, connect=30.0)
-        
-        # 显式控制代理配置
-        # 如果 config 中没有配置代理，则强制禁用环境变量代理 (trust_env=False) 以避免干扰
-        # 如果配置了代理，则使用配置的代理
-        proxy_url = CONFIG.get("HTTP_PROXY")
-        mounts = None
-        if proxy_url:
-            mounts = {"http://": httpx.HTTPTransport(proxy=proxy_url), "https://": httpx.HTTPTransport(proxy=proxy_url)}
-            client_args = {"mounts": mounts}
-        else:
-            client_args = {"trust_env": False}
-
-        async with httpx.AsyncClient(timeout=timeout, **client_args) as client:
-            try:
-                resp = await client.post(
-                    API_URL,
-                    json=payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {API_KEY}"
-                    }
-                )
-            except httpx.ConnectTimeout:
-                return {"success": False, "error": "连接 LLM 服务超时 (ConnectTimeout)，请检查网络状况"}
-            except httpx.ConnectError as e:
-                return {"success": False, "error": f"连接 LLM 服务失败: {e}"}
+        # ========== Step 2: 根据意图路由 ==========
+        if intent == "chat":
+            # 聊天模式 - 使用轻量模型或预设回复
+            result = await llm_router.handle_chat(user_text)
+            return result
             
-            if resp.status_code != 200:
-                logger.error(f"API Error: {resp.text}")
-                return {"success": False, "error": f"API Error: {resp.status_code} - {resp.text}"}
+        elif intent == "work":
+            # 工作模式 - 使用 DeepSeek 处理
+            skills_desc = skills.get_skill_descriptions()
+            result = await llm_router.handle_work(
+                user_message=user_text,
+                skills_description=skills_desc,
+                current_angles=request.current_angles
+            )
             
-            # 解析响应
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            logger.info(f"LLM 原始响应: {content}")
-            
-            try:
-                clean_content = content.replace("```json", "").replace("```", "").strip()
-                result = json.loads(clean_content)
-                
-                skill_name = result.get("skill")
+            # 如果成功返回了 skill，执行技能
+            if result.get("success") and result.get("skill"):
+                skill_name = result["skill"]
                 args = result.get("args", {})
                 
-                if skill_name:
-                    # 注入当前角度上下文 (如果前端提供了)
-                    if request.current_angles:
-                        args["current_angles"] = request.current_angles
-                        
-                    # 调用 RobotSkills 执行技能
-                    skill_result = skills.execute(skill_name, **args)
-                    
-                    # 确保返回 LLM 的文本回复
-                    if "response" in result and "response" not in skill_result:
-                        skill_result["response"] = result["response"]
-                        
-                    return skill_result
+                # 调用 RobotSkills 执行技能
+                skill_result = skills.execute(skill_name, **args)
                 
-                return {
-                    "success": True,
-                    "mode": result.get("mode", "chat"),
-                    "action": result.get("action"),
-                    "response": result.get("response", ""),
-                    "command": result
-                }
-            except json.JSONDecodeError:
-                # 如果没返回 JSON，当作普通聊天
-                return {
-                    "success": True,
-                    "mode": "chat",
-                    "action": None,
-                    "response": content,
-                    "command": {"mode": "chat", "response": content}
-                }
+                # 合并 LLM 的回复和技能执行结果
+                if "response" in result and "response" not in skill_result:
+                    skill_result["response"] = result["response"]
+                    
+                return skill_result
+            
+            return result
+            
+        elif intent == "vision":
+            # 视觉模式 - 使用视觉模型
+            vision_context = ""
+            
+            # 如果启用了检测功能且 YOLO 模型已加载
+            if DETECTION_ENABLED and yolo_model:
+                try:
+                    # 尝试从 IP Camera 获取图像
+                    ip_camera_url = CONFIG.get("IP_CAMERA_URL")
+                    if ip_camera_url:
+                        logger.info(f"正在读取摄像头: {ip_camera_url.split('@')[-1]}") # 隐藏密码
+                        # 智能判断: 如果是数字则作为本地摄像头索引
+                        if str(ip_camera_url).isdigit():
+                            cap = cv2.VideoCapture(int(ip_camera_url))
+                        else:
+                            cap = cv2.VideoCapture(ip_camera_url)
+                            
+                        if cap.isOpened():
+                            ret, frame = cap.read()
+                            if ret:
+                                # YOLO 检测
+                                results = yolo_model(frame, verbose=False, conf=0.3)
+                                
+                                # 提取检测到的物体
+                                detected_objects = []
+                                for result in results:
+                                    for box in result.boxes:
+                                        cls = int(box.cls[0])
+                                        class_name = result.names[cls]
+                                        detected_objects.append(class_name)
+                                
+                                if detected_objects:
+                                    # 统计物体数量
+                                    from collections import Counter
+                                    counts = Counter(detected_objects)
+                                    desc_list = [f"{count}个{name}" for name, count in counts.items()]
+                                    vision_context = ", ".join(desc_list)
+                                    logger.info(f"视觉检测结果: {vision_context}")
+                                else:
+                                    vision_context = "画面清晰，但未识别到已知物体"
+                            else:
+                                vision_context = "无法读取摄像头画面"
+                            cap.release()
+                        else:
+                            vision_context = "无法连接到摄像头，请检查网络"
+                    else:
+                        vision_context = "系统中未配置 IP Camera 地址"
+                except Exception as e:
+                    logger.error(f"视觉处理异常: {e}")
+                    vision_context = f"视觉系统出错: {str(e)}"
+            else:
+                vision_context = "YOLO模型未加载，无法识别物体"
+
+            result = await llm_router.handle_vision(user_text, vision_context=vision_context)
+            return result
+            
+        else:
+            # 未知意图，默认聊天
+            result = await llm_router.handle_chat(user_text)
+            return result
 
     except Exception as e:
         logger.error(f"LLM Error: {str(e)}")

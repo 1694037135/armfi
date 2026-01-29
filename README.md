@@ -2,7 +2,7 @@
 
 一个基于 **Vue 3** + **Spring Boot** + **FastAPI** 的开源六轴机械臂控制系统，集成 **YOLO 视觉识别**、**大模型对话** 和 **逆运动学规划**。
 
-[![Docker Build](https://github.com/YOUR_USERNAME/zero-robotic-arm/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/YOUR_USERNAME/zero-robotic-arm/actions)
+[![Docker Build](https://github.com/1694037135/zero-robotic-arm/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/1694037135/zero-robotic-arm/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -29,7 +29,7 @@
 
 ```cmd
 # 1. 克隆仓库
-git clone https://github.com/YOUR_USERNAME/zero-robotic-arm.git
+git clone https://github.com/1694037135/zero-robotic-arm.git
 cd zero-robotic-arm\robot-control-system
 
 # 2. 一键启动（使用自动脚本）
@@ -40,7 +40,7 @@ deploy.bat
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/YOUR_USERNAME/zero-robotic-arm.git
+git clone https://github.com/1694037135/zero-robotic-arm.git
 cd zero-robotic-arm/robot-control-system
 
 # 2. 给脚本执行权限并启动

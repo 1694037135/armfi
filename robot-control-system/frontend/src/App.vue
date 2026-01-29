@@ -1036,7 +1036,7 @@ async function playActionSequence(sequenceOrName) {
   }
 
   isPlayingSequence.value = true
-  currentSequence.value = sequenceName
+  currentSequence.value = sequence.name
   addLog('🎭 开始执行: ' + sequence.name, 'text-primary')
 
   try {
@@ -1948,8 +1948,6 @@ function handleKeyDown(e) {
   if (e.key === 'Shift') { isShiftPressed.value = true; return }
   const k = e.key.toLowerCase()
   if (keyMap[k]) { e.preventDefault(); pressKey(k) }
-  // Space 键改为语音控制(避免误触发紧急停止)
-  if (e.code === 'Space') { e.preventDefault(); toggleVoice() } 
 }
 
 function handleKeyUp(e) {

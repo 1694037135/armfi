@@ -1,7 +1,8 @@
-# 核心框架
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
+# 核心框架 (兼容版本组合)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+starlette==0.41.3
 
 # 串口通信
 pyserial>=3.5

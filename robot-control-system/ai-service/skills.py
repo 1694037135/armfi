@@ -27,17 +27,24 @@ class RobotSkills:
      - current_angles (list): 当前所有关节角度 [j1, j2, j3, j4, j5, j6]，用于保持其他关节不动
    - 示例: "基座转到90度" -> {"skill": "control_joint", "args": {"joint_index": 1, "angle": 90, "current_angles": [...]}}
 
-2. **move_to(x, y, z)**
+2. **control_multiple_joints(target_angles_dict, current_angles)**
+   - 功能: 同时控制多个关节
+   - 参数:
+     - target_angles_dict (dict): 目标关节角度字典，键为关节序号(1-6)，值为角度。例如 {"1": 90, "2": 30}
+     - current_angles (list): 当前所有关节角度
+   - 示例: "基座转到90度，大臂30度" -> {"skill": "control_multiple_joints", "args": {"target_angles_dict": {"1": 90, "2": 30}, "current_angles": [...]}}
+
+3. **move_to(x, y, z)**
    - 功能: IK控制，将末端移动到指定坐标
    - 参数: x, y, z (float) 单位米
    - 示例: "移动到坐标 0.2, 0.2, 0.2" -> {"skill": "move_to", "args": {"x": 0.2, "y": 0.2, "z": 0.2}}
 
-3. **apply_preset(name)**
+4. **apply_preset(name)**
    - 功能: 移动到预设位置
    - 参数: name (str) -> "home"(复位), "left", "right", "center", "high", "pickup", "forward"
    - 示例: "复位" -> {"skill": "apply_preset", "args": {"name": "home"}}
 
-4. **perform_action(action_name)**
+5. **perform_action(action_name)**
    - 功能: 执行复杂动作序列
    - 参数: action_name (str) -> "wave"(挥手), "nod"(点头), "spin"(转圈), "dance"(跳舞)
    - 示例: "挥手" -> {"skill": "perform_action", "args": {"action_name": "wave"}}
@@ -66,7 +73,7 @@ class RobotSkills:
 
     # ==================== 具体技能实现 ====================
 
-    def control_joint(self, joint_index, angle, current_angles=None):
+    def control_joint(self, joint_index, angle, current_angles=None, **kwargs):
         """控制单个关节"""
         try:
             joint_idx = int(joint_index) - 1 # 1-based -> 0-based
@@ -94,7 +101,43 @@ class RobotSkills:
         except Exception as e:
             return {"success": False, "error": f"关节控制失败: {str(e)}"}
 
-    def move_to(self, x, y, z):
+    def control_multiple_joints(self, target_angles_dict, current_angles=None, **kwargs):
+        """同时控制多个关节"""
+        try:
+            # 使用传入的当前角度，否则默认全0
+            current = current_angles or [0, 0, 0, 0, 0, 0]
+            if len(current) < 6:
+                current = [0] * 6
+                
+            new_angles = list(current)
+            
+            updated_joints = []
+            
+            for index_str, angle in target_angles_dict.items():
+                try:
+                    joint_idx = int(index_str) - 1 # 1-based -> 0-based
+                    target_angle = float(angle)
+                    
+                    if 0 <= joint_idx < 6:
+                        new_angles[joint_idx] = target_angle
+                        updated_joints.append(f"关节{index_str}={target_angle}度")
+                except ValueError:
+                    continue
+            
+            if not updated_joints:
+                return {"success": False, "error": "没有有效的关节目标"}
+
+            return {
+                "success": True,
+                "mode": "work",
+                "action": "control_multiple_joints",
+                "response": f"好的，正在调整: {', '.join(updated_joints)}",
+                "angles": {f"joint{i+1}": a for i, a in enumerate(new_angles)}
+            }
+        except Exception as e:
+            return {"success": False, "error": f"多关节控制失败: {str(e)}"}
+
+    def move_to(self, x, y, z, current_angles=None, **kwargs):
         """移动到坐标"""
         ik_result = self.ik_controller.calculate_ik(x, y, z)
         if ik_result["success"]:
@@ -113,7 +156,7 @@ class RobotSkills:
                 "response": f"无法移动到目标位置: {ik_result['message']}"
             }
 
-    def apply_preset(self, name):
+    def apply_preset(self, name, current_angles=None, **kwargs):
         """应用预设位置"""
         ik_result = self.ik_controller.get_preset(name)
         if ik_result["success"]:
@@ -131,7 +174,7 @@ class RobotSkills:
                 "response": f"未知位置: {name}"
             }
 
-    def perform_action(self, action_name):
+    def perform_action(self, action_name, current_angles=None, **kwargs):
         """执行动作序列"""
         # 动作序列其实是在前端定义的，后端只需要返回 action name
         # 前端收到 action 会去查 actionLibrary
