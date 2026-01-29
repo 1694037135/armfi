@@ -329,6 +329,7 @@
         title="手机摄像头"
         @close="showCamera = false" 
         @calibration-click="handleCalibrationClick"
+        @camera-click="handleCameraClick"
         @loaded="handleCameraLoaded"
       />
     </Transition>
@@ -339,7 +340,8 @@
 
     <!-- 标定流程控制台 -->
     <Transition name="fade">
-       <div v-if="showCamera && (tempCalibrationPoint || calibrationCount > 0)" class="fixed bottom-40 right-96 z-[60] flex items-end gap-4 animate-in slide-in-from-right-10 fade-in duration-500">
+       <!-- 调整位置到右侧相机上方，并提升 Z-Index 到 150 确保不被底部控制栏(z-100)遮挡 -->
+       <div v-if="showCamera" class="fixed bottom-[32rem] right-8 z-[150] flex flex-col items-end gap-4 animate-in slide-in-from-right-10 fade-in duration-500 pointer-events-auto">
           
           <!-- 待确认的点 -->
           <div v-if="tempCalibrationPoint" class="bg-zinc-900/90 backdrop-blur-xl border border-primary/30 p-4 rounded-2xl shadow-2xl flex flex-col gap-3 min-w-[240px]">
@@ -383,6 +385,18 @@
                 </button>
                 <button @click="clearCalibration" class="w-full text-zinc-500 hover:text-white text-[10px] py-1 border border-transparent hover:border-white/10 rounded transition-colors">
                    清空数据
+                </button>
+             </div>
+             
+             <!-- 新增: ArUco 辅助工具 -->
+             <div class="border-t border-white/10 pt-2 grid grid-cols-2 gap-2">
+                <button @click="downloadAruco" class="bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white text-[10px] py-1.5 rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5">
+                   <span class="material-symbols-outlined text-sm">print</span>
+                   <span>下载标定卡</span>
+                </button>
+                <button @click="autoDetectAruco" class="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 text-[10px] py-1.5 rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 border border-blue-500/20">
+                   <span class="material-symbols-outlined text-sm">qr_code_scanner</span>
+                   <span>自动标定</span>
                 </button>
              </div>
           </div>
@@ -740,62 +754,65 @@ const actionLibrary = {
   wave: {
     name: '挥手',
     keyframes: [
-      { angles: [0, -30, 45, 0, -15, 0], duration: 1000 },     // 抬起手臂
-      { angles: [15, -30, 45, 0, -15, 30], duration: 500 },   // 向右摆
-      { angles: [-15, -30, 45, 0, -15, -30], duration: 500 }, // 向左摆
-      { angles: [15, -30, 45, 0, -15, 30], duration: 500 },   // 再向右
+      { angles: [0, 30, 60, 0, -30, 0], duration: 1000 },     // 抬起手臂（向外）
+      { angles: [15, 30, 60, 0, -30, 30], duration: 500 },   // 向右摆
+      { angles: [-15, 30, 60, 0, -30, -30], duration: 500 }, // 向左摆
+      { angles: [15, 30, 60, 0, -30, 30], duration: 500 },   // 再向右
       { angles: [0, 0, 0, 0, 0, 0], duration: 1000 }           // 归位
     ]
   },
   grab_demo: {
     name: '抓取Demo',
     keyframes: [
-      { angles: [0, -20, 30, 0, -10, 0], duration: 1000 },     // 准备姿态
-      { angles: [0, -45, 60, 0, -15, 0], duration: 800 },      // 俯身
-      { angles: [0, -45, 60, 0, -15, 0], duration: 300, gripper: false }, // 夹紧
-      { angles: [0, -20, 30, 0, -10, 0], duration: 800 },      // 抬起
-      { angles: [45, -20, 30, 0, -10, 45], duration: 1000 },   // 转向
-      { angles: [45, -45, 60, 0, -15, 45], duration: 800 },    // 放下
-      { angles: [45, -45, 60, 0, -15, 45], duration: 300, gripper: true }, // 松开
+      { angles: [0, 20, 40, 0, -20, 0], duration: 1000 },     // 准备姿态（向外）
+      { angles: [0, 40, 70, 0, -30, 0], duration: 800 },      // 俯身（向外）
+      { angles: [0, 40, 70, 0, -30, 0], duration: 300, gripper: false }, // 夹紧
+      { angles: [0, 20, 40, 0, -20, 0], duration: 800 },      // 抬起
+      { angles: [45, 20, 40, 0, -20, 45], duration: 1000 },   // 转向
+      { angles: [45, 40, 70, 0, -30, 45], duration: 800 },    // 放下
+      { angles: [45, 40, 70, 0, -30, 45], duration: 300, gripper: true }, // 松开
       { angles: [0, 0, 0, 0, 0, 0], duration: 1200 }            // 归位
     ]
   },
   dance: {
     name: '小舞',
     keyframes: [
-      { angles: [0, -30, 30, 0, 0, 0], duration: 500 },
-      { angles: [30, -30, 30, 30, 0, 30], duration: 400 },
-      { angles: [-30, -30, 30, -30, 0, -30], duration: 400 },
-      { angles: [30, -30, 30, 30, 0, 30], duration: 400 },
-      { angles: [0, 0, 60, 0, -60, 0], duration: 600 },
-      { angles: [0, 0, 0, 0, 0, 0], duration: 800 }
+      { angles: [0, 25, 50, 0, -25, 0], duration: 500 },      // 向外抬起
+      { angles: [30, 25, 50, 30, -25, 30], duration: 400 },   // 右摆
+      { angles: [-30, 25, 50, -30, -25, -30], duration: 400 }, // 左摆
+      { angles: [30, 25, 50, 30, -25, 30], duration: 400 },   // 再右摆
+      { angles: [0, 35, 70, 0, -35, 0], duration: 600 },      // 向外伸展
+      { angles: [0, 0, 0, 0, 0, 0], duration: 800 }            // 归位
     ]
   },
   spin: {
     name: '原地转圈',
     keyframes: [
-      { angles: [179, 0, 0, 0, 0, 0], duration: 2000 },
-      { angles: [-179, 0, 0, 0, 0, 0], duration: 4000 },
-      { angles: [0, 0, 0, 0, 0, 0], duration: 2000 }
+      { angles: [0, 20, 40, 0, -20, 0], duration: 500 },      // 先抬起（避免碰撞）
+      { angles: [179, 20, 40, 0, -20, 0], duration: 2000 },   // 转半圈
+      { angles: [-179, 20, 40, 0, -20, 0], duration: 4000 },  // 转一圈
+      { angles: [0, 20, 40, 0, -20, 0], duration: 2000 },     // 回正
+      { angles: [0, 0, 0, 0, 0, 0], duration: 1000 }           // 归位
     ]
   },
   nod: {
     name: '点头',
     keyframes: [
-      { angles: [0, 0, 0, 0, 30, 0], duration: 300 },
-      { angles: [0, 0, 0, 0, -20, 0], duration: 300 },
-      { angles: [0, 0, 0, 0, 30, 0], duration: 300 },
-      { angles: [0, 0, 0, 0, 0, 0], duration: 300 }
+      { angles: [0, 15, 30, 0, -15, 0], duration: 400 },      // 先抬起一点
+      { angles: [0, 15, 30, 0, 30, 0], duration: 300 },       // 点头向下
+      { angles: [0, 15, 30, 0, -20, 0], duration: 300 },      // 抬头
+      { angles: [0, 15, 30, 0, 30, 0], duration: 300 },       // 再点头
+      { angles: [0, 0, 0, 0, 0, 0], duration: 500 }            // 归位
     ]
   },
   greet: {
     name: '打招呼',
     keyframes: [
-      { angles: [0, -40, 50, 0, -10, 0], duration: 800 },      // 抬手准备
-      { angles: [0, -40, 50, 0, -10, 30], duration: 300 },     // 手掌转向
-      { angles: [0, -40, 50, 0, -10, -30], duration: 300 },    // 摆动1
-      { angles: [0, -40, 50, 0, -10, 30], duration: 300 },     // 摆动2
-      { angles: [0, -40, 50, 0, -10, 0], duration: 300 },      // 停止
+      { angles: [0, 35, 65, 0, -30, 0], duration: 800 },      // 抬手准备（向外）
+      { angles: [0, 35, 65, 0, -30, 30], duration: 300 },     // 手掌转向
+      { angles: [0, 35, 65, 0, -30, -30], duration: 300 },    // 摆动1
+      { angles: [0, 35, 65, 0, -30, 30], duration: 300 },     // 摆动2
+      { angles: [0, 35, 65, 0, -30, 0], duration: 300 },      // 停止
       { angles: [0, 0, 0, 0, 0, 0], duration: 1000 }            // 归位
     ]
   }
@@ -1313,7 +1330,7 @@ function emergencyStop() {
 
 function toggleGripper(isOpen) {
   gripperOpen.value = isOpen
-  addLog('夹爪: ' + isOpen ? '开启' : '关闭' + '', 'text-zinc-400')
+  addLog(`夹爪: ${isOpen ? '开启' : '关闭'}`, 'text-zinc-400')
   
   // 发送Pump控制指令到后端
   fetch('http://localhost:5000/api/pump/control', {
@@ -1912,6 +1929,70 @@ async function addCalibrationPoint(pixelX, pixelY) {
   }
 }
 
+// 点击抓取逻辑
+async function handleCameraClick(point) {
+  if (!connected.value) {
+     addLog('[!] 请先连接机械臂与AI服务', 'text-amber-400')
+     return
+  }
+  
+  addLog(`🎯 点击坐标: u=${point.u.toFixed(2)}, v=${point.v.toFixed(2)}`, 'text-cyan-400')
+  
+  try {
+      // 1. 调用标定应用接口 (u,v -> x,y,z)
+      const calRes = await fetch('http://localhost:5000/api/calibration/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ u: point.u, v: point.v })
+      })
+      const calData = await calRes.json()
+      
+      if (!calData.success) {
+         addLog('[!] 坐标变换失败: ' + (calData.error || '未标定?'), 'text-red-400')
+         return
+      }
+      
+      const { x, y, z } = calData.position
+      addLog(`空间坐标: (${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`, 'text-blue-300')
+      
+      // 2. 调用 IK 计算关节角
+      // 默认抓取高度 z (这里可能需要一个平面高度的假设，或者使用标定算出来的 z)
+      // 注意: 单目摄像头标定算出来的 z 通常是基于“标定平面”的。
+      // 如果标定纸在桌面，这里的 z=0 就是桌面。
+      // 我们设定一个安全高度用来移动
+      
+      const targetZ = z < 0.05 ? 0.05 : z // 限制最低高度
+      
+      const ikRes = await fetch('http://localhost:5000/api/ik/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x, y, z: targetZ })
+      })
+      const ikData = await ikRes.json()
+      
+      if (ikData.success) {
+           const safe = getSafeAngles(ikData.angles, '点击抓取')
+           if (!safe) return
+
+           targetAngles.value = safe.rad
+           targetEndEffectorPos.value = { x, y, z: targetZ }
+           
+           addLog('>> 执行点击移动...', 'text-emerald-400')
+           
+           if (connected.value) {
+             sendCommand({ type: 'move_to_angles', angles: safe.rad })
+           }
+      } else {
+           addLog('[!] 目标位置不可达 (IK Failed)', 'text-amber-400')
+      }
+      
+  } catch (e) {
+      console.error(e)
+      addLog('[X] 点击控制失败', 'text-red-400')
+  }
+}
+
+
 // ============================================================
 
 
@@ -1988,7 +2069,22 @@ async function handleDeepSeekSend(text) {
     if (result.success) {
       // IK 指令执行成功
       const preset = result.preset || '目标位置';
-      responseMsg.content = `正在移动到: ${preset}`;
+      // 只有明确的位置指令才显示"正在移动到"
+      if (result.preset && ['left', 'right', 'center', 'high', 'forward', 'back', 'home', 'pickup'].includes(result.preset)) {
+        const presetNames = {
+          'left': '左侧',
+          'right': '右侧',
+          'center': '中心',
+          'high': '高位',
+          'forward': '前方',
+          'back': '后方',
+          'home': '初始位置',
+          'pickup': '拾取位置'
+        };
+        responseMsg.content = `好的，移动到${presetNames[result.preset] || preset}`;
+      } else {
+        responseMsg.content = `好的，正在执行`;
+      }
       responseMsg.isThinking = false;
       
       const angles = result.angles;

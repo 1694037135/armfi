@@ -27,6 +27,7 @@ from config import load_config, build_gemini_generate_url
 from serial_transport import SerialConfig, SerialTransport, JointLimits
 print("✅✅✅ CODE VERSION CHECK: 2026-01-29 15:25 ✅✅✅")
 from llm_router import LLMRouter
+from memory import get_memory
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -900,6 +901,18 @@ def generate_frames():
                 # 如果 IP 摄像头多次失败，可以考虑切换到本地，但这里暂保持尝试配置的源
             continue
             
+        # --- 新增: YOLO 实时画框 ---
+        if DETECTION_ENABLED and yolo_model is not None:
+            try:
+                # 执行检测 (stream=True 提高性能)
+                results = yolo_model(frame, stream=True, verbose=False, conf=0.25)
+                for r in results:
+                    # 获取带有画框的图像 (numpy array)
+                    frame = r.plot()
+            except Exception as e:
+                logger.error(f"直播画框失败: {e}")
+        # -------------------------
+
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -1377,14 +1390,16 @@ async def websocket_telemetry(websocket: WebSocket):
 @app.post("/api/llm/chat")
 async def chat_with_llm(request: ChatRequest):
     """
-    智能对话接口 - 多模型路由系统
+    智能对话接口 - 多模型路由系统 + 多轮对话记忆
     
     流程：
-    1. MODEL_FILTER (Doubao-lite) - 快速意图分类
-    2. 根据意图路由:
+    1. 保存用户消息到记忆系统
+    2. MODEL_FILTER (Doubao-lite) - 快速意图分类
+    3. 根据意图路由:
        - chat → 轻量模型或预设回复（快速）
        - work → MODEL_DECISION (DeepSeek) 处理
        - vision → MODEL_VISION 视觉理解
+    4. 保存AI回复到记忆系统
     """
     try:
         user_text = request.message
@@ -1392,6 +1407,11 @@ async def chat_with_llm(request: ChatRequest):
             return {"success": False, "error": "Empty message"}
             
         logger.info(f"收到用户消息: {user_text}")
+
+        # ========== 🧠 Step 0: 保存用户消息到记忆 ==========
+        memory = get_memory()
+        memory.add_message("user", user_text)
+        logger.info(f"💾 用户消息已保存到记忆 (总计: {len(memory.ram_messages)}条)")
 
         if not LLM_ENABLED or not llm_router:
             return {"success": False, "error": "LLM已禁用：未配置 API Key 或路由器未初始化"}
@@ -1401,10 +1421,11 @@ async def chat_with_llm(request: ChatRequest):
         logger.info(f"📊 意图分类结果: {intent}")
         
         # ========== Step 2: 根据意图路由 ==========
+        result = None
+        
         if intent == "chat":
             # 聊天模式 - 使用轻量模型或预设回复
             result = await llm_router.handle_chat(user_text)
-            return result
             
         elif intent == "work":
             # 工作模式 - 使用 DeepSeek 处理
@@ -1426,10 +1447,8 @@ async def chat_with_llm(request: ChatRequest):
                 # 合并 LLM 的回复和技能执行结果
                 if "response" in result and "response" not in skill_result:
                     skill_result["response"] = result["response"]
-                    
-                return skill_result
-            
-            return result
+                
+                result = skill_result
             
         elif intent == "vision":
             # 视觉模式 - 使用视觉模型
@@ -1456,10 +1475,10 @@ async def chat_with_llm(request: ChatRequest):
                                 
                                 # 提取检测到的物体
                                 detected_objects = []
-                                for result in results:
-                                    for box in result.boxes:
+                                for result_item in results:
+                                    for box in result_item.boxes:
                                         cls = int(box.cls[0])
-                                        class_name = result.names[cls]
+                                        class_name = result_item.names[cls]
                                         detected_objects.append(class_name)
                                 
                                 if detected_objects:
@@ -1485,12 +1504,18 @@ async def chat_with_llm(request: ChatRequest):
                 vision_context = "YOLO模型未加载，无法识别物体"
 
             result = await llm_router.handle_vision(user_text, vision_context=vision_context)
-            return result
             
         else:
             # 未知意图，默认聊天
             result = await llm_router.handle_chat(user_text)
-            return result
+        
+        # ========== 🧠 Step 3: 保存AI回复到记忆 ==========
+        if result and result.get("response"):
+            assistant_response = result["response"]
+            memory.add_message("assistant", assistant_response)
+            logger.info(f"💾 AI回复已保存到记忆")
+        
+        return result
 
     except Exception as e:
         logger.error(f"LLM Error: {str(e)}")

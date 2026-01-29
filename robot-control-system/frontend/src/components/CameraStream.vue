@@ -155,22 +155,27 @@ const toggleCalibration = () => {
 }
 
 const handleImageClick = (e) => {
-    if (!isCalibrationMode.value || !videoImg.value) return
+    if (!videoImg.value) return
     
     // Get click position relative to image
     const rect = videoImg.value.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     
-    // Update marker position
-    clickPos.value = { x, y }
-    
     // Calculate normalized coordinates (0.0 - 1.0)
     const u = x / rect.width
     const v = y / rect.height
     
-    console.log(`Calibration Click: ${u.toFixed(3)}, ${v.toFixed(3)}`)
-    emit('calibration-click', { u, v })
+    if (isCalibrationMode.value) {
+        // Update marker position
+        clickPos.value = { x, y }
+        console.log(`Calibration Click: ${u.toFixed(3)}, ${v.toFixed(3)}`)
+        emit('calibration-click', { u, v })
+    } else {
+        // Normal mode click (for grasping)
+        // Show a temporary ripple effect or marker could be added here
+        emit('camera-click', { u, v })
+    }
 }
 
 // Smart URL handling for IP Webcam
